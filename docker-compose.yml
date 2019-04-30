@@ -1,0 +1,82 @@
+version: '3.4'
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:5.2.1
+    hostname: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_LOG4J_LOGGERS: org=ERROR
+
+  kafka-1:
+    image: confluentinc/cp-kafka:5.2.1
+    hostname: kafka-1
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_LOG4J_LOGGERS: org=ERROR
+
+  kafka-2:
+    image: confluentinc/cp-kafka:5.2.1
+    hostname: kafka-2
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_LOG4J_LOGGERS: org=ERROR
+
+  kafka-3:
+    image: confluentinc/cp-kafka:5.2.1
+    hostname: kafka-3
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9092
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_LOG4J_LOGGERS: org=ERROR
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - '15672:15672'
+      - '5672:5672'
+
+  rabbit-client:
+    build: rabbit-client
+    depends_on:
+      - rabbitmq
+    command: "sleep infinity"
+
+  connect:
+    build: connect-with-rabbitmq
+    hostname: connect
+    restart: always
+    ports:
+      - "8083:8083"
+    depends_on:
+      - zookeeper
+      - kafka-1
+      - kafka-2
+      - kafka-3
+      - rabbitmq
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+      CONNECT_GROUP_ID: "connect"
+      CONNECT_CONFIG_STORAGE_TOPIC: connect-config
+      CONNECT_OFFSET_STORAGE_TOPIC: connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: connect-status
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_REST_ADVERTISED_HOST_NAME: "connect"
+      CONNECT_PLUGIN_PATH: "/usr/share/confluent-hub-components"
+      CONNECT_LOG4J_LOGGERS: "org.reflections=ERROR,org.apache.kafka.clients=ERROR,org.apache.hadoop=ERROR,io.confluent.connect.rabbitmq=TRACE,org.apache.kafka.connect=TRACE,org.apache.kafka.connect.runtime.WorkerSourceTask=WARN"
